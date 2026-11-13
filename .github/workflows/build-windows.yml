@@ -1,0 +1,47 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCHORDSEARCH_BUILD_TOOLS=OFF
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "dist/Chordsearch-Windows"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $art = "build/plugin/Chordsearch_artefacts/Release"
+          Copy-Item "$art/Standalone/Chordsearch.exe" "$out/"
+          Copy-Item -Recurse "$art/VST3/Chordsearch.vst3" "$out/"
+          Copy-Item "packaging/windows/README.txt" "$out/"
+          Compress-Archive -Path "$out/*" -DestinationPath "dist/Chordsearch-Windows.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chordsearch-Windows
+          path: dist/Chordsearch-Windows.zip
+
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Chordsearch-Windows.zip
+          prerelease: true
