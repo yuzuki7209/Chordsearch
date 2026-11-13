@@ -14,11 +14,17 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Show toolchain
+        run: |
+          cmake --version
+          cmake --help | Select-String "Visual Studio"
+
       - name: Configure
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCHORDSEARCH_BUILD_TOOLS=OFF
+        # No hard-coded generator: use whichever Visual Studio the runner image ships
+        run: cmake -S . -B build -A x64 -DCHORDSEARCH_BUILD_TOOLS=OFF
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel -- /p:CL_MPCount=4 /v:minimal
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
